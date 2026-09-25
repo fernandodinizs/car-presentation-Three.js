@@ -203,6 +203,8 @@ function Nav({ open, setOpen }) {
     { href: '#section-2', label: 'PERFORMANCE' },
     { href: '#section-3', label: 'DIMENSIONS' },
     { href: '#section-4', label: 'COCKPIT' },
+    { href: '#section-5', label: 'INTERACT' },
+    { href: '#section-6', label: 'THE MACHINE' },
   ];
 
   return (
@@ -217,15 +219,22 @@ function Nav({ open, setOpen }) {
         </nav>
 
         <div className="nav-right">
-          <a href="#reserve" className="nav-cta">RESERVAR</a>
-          <button className="menu-btn" onClick={() => setOpen(!open)} aria-label="Abrir menu">
+          <a href="#reserve" className="nav-cta">RESERVE</a>
+
+          {/* MENU - TIRAR DEPOIS TALVEZ */}
+          {/* <button className="menu-btn" onClick={() => setOpen(!open)} aria-label="Abrir menu">
             {open ? <X size={19} /> : <Menu size={19} />}
             <span>MENU</span>
-          </button>
+          </button> */} 
+          {/* --------------------------------------- */}
+
+
         </div>
       </header>
 
-      <div className={`menu-panel ${open ? 'open' : ''}`}>
+      {/* MENU - TIRAR DEPOIS TALVEZ */}
+
+      {/* <div className={`menu-panel ${open ? 'open' : ''}`}>
         {['Design', 'Performance', 'Dimensions', 'Cockpit', 'Reserva'].map((item, i) => (
           <a 
             key={item}
@@ -235,7 +244,11 @@ function Nav({ open, setOpen }) {
             <span>0{i + 1}</span>{item}
           </a>
         ))}
-      </div>
+      </div> */}
+
+      {/* --------------------------------------- */}
+
+
     </>
   );
 }
@@ -306,10 +319,16 @@ function App() {
     return () => { cleanup(); cancelAnimationFrame(rafId); lenis.destroy(); };
   }, []);
 
+// -----------------------------------------------------------------------------
+//                               PAGINA WEB DE FATO
+// ---------------------------------------
+
   return (
     <main id="top">
       <div className="scanlines" aria-hidden="true" />
       <Nav open={menuOpen} setOpen={setMenuOpen} />
+
+      {/* first page */}
 
       <section className="hero">
         <div className="hero-grid" />
@@ -324,6 +343,10 @@ function App() {
         <div className="hero-stat"><strong>320</strong><span>HP</span></div>
       </section>
 
+      {/* END first page */}
+
+{/* -------------------------------- INICIO PAGs ---------------------------------- */}
+      
       <section className="statement" id="section-1">
         <div className="section-index">01 / DESIGN</div>
         <Reveal>
@@ -335,6 +358,8 @@ function App() {
           <span>SCROLL / 01</span>
         </div>
       </section>
+
+
 
       <section className="split-section dark" id="section-2">
         <div className="split-copy">
@@ -358,7 +383,7 @@ function App() {
         <div className="section-index">03 / DIMENSIONS</div>
         <div className="dimension-layout">
           <div>
-            <Reveal><h2>FORM<br /><em>MEETS</em><br />FUNCTION.</h2></Reveal>
+            <Reveal><h2>FORM<br /><em>MEETS</em><br />FUNCTION</h2></Reveal>
             <p className="muted-copy">Proportions tuned around stability, weight and presence.</p>
           </div>
           <div className="dimension-card">
@@ -377,11 +402,13 @@ function App() {
         </div>
       </section>
 
+
+
       <section className="cockpit-section" id="section-4">
         <div className="section-index">04 / COCKPIT</div>
         <div className="cockpit-copy">
           <div className="eyebrow">DRIVER / MACHINE</div>
-          <h2>EVERYTHING<br /><em>WITHIN REACH.</em></h2>
+          <h2>EVERYTHING<br /><em>WITHIN REACH</em></h2>
           <p>Focused controls. Supportive seats. A cabin designed around the person behind the wheel.</p>
         </div>
         <div className="cockpit-visual">
@@ -391,10 +418,12 @@ function App() {
         </div>
       </section>
 
-      <section className="interactive-section">
+
+
+      <section className="interactive-section" id="section-5">
         <div className="section-index">05 / INTERACT</div>
         <div className="interactive-head">
-          <div><div className="eyebrow">YOUR TURN</div><h2>TAKE<br /><em>CONTROL.</em></h2></div>
+          <div><div className="eyebrow">YOUR TURN</div><h2>TAKE<br /><em>CONTROL</em></h2></div>
           <p>Drag the vehicle. Inspect the silhouette from every angle.</p>
         </div>
         <div className="interactive-model">
@@ -402,68 +431,79 @@ function App() {
         </div>
       </section>
 
-      <section className="final-section">
+
+
+      <section className="final-section" id="section-6">
         <div className="final-watermark">TYPE R</div>
         <div className="final-content">
-          <div className="eyebrow">07 / THE MACHINE</div>
-          <h2>ENGINEERED<br /><em>TO BE FELT.</em></h2>
+          <div className="eyebrow">06 / THE MACHINE</div>
+          <h2>ENGINEERED<br /><em>TO BE FELT</em></h2>
           <div className="final-specs">
             <span>{vehicle.transmission}</span>
             <span>{vehicle.engine}</span>
             <span>{vehicle.year} / TYPE R</span>
           </div>
-          <a href="#top" className="back-top">BACK TO TOP <ArrowUpRight size={17} /></a>
+          
         </div>
         <div className="final-model"><VehicleScene /></div>
       </section>
 
+
+
       <section className="reserve-section" id="reserve">
         <div className="reserve-head">
           <div>
-            <span className="section-index">08 / DISPONIBILIDADE</span>
-            <h2>RESERVE<br /><em>O SEU.</em></h2>
+            <span className="section-index">07 / AVAILABILITY</span>
+
+            <h2>RESERVE<br/><em>YOURS</em></h2>
+
+            <a href="#top" className="back-top">BACK TO TOP <ArrowUpRight size={17} /></a>
           </div>
-          <p className="muted-copy">Produção limitada. Atendimento exclusivo para colecionadores e entusiastas da marca.</p>
+          <p className="muted-copy">Limited production. Exclusive service for collectors and brand enthusiasts.</p>
         </div>
 
         <div className="reserve-grid">
           <div className="reserve-card">
-            <span className="section-index">[01] PERSONALIZAÇÃO</span>
+            <span className="section-index">[01] PERSONALIZATION</span>
             <h3>BESPOKE FINISH</h3>
-            <p>Escolha cores exclusivas, acabamentos e gravação do número de chassi.</p>
+            <p>Choose exclusive colors, finishes, and chassis number engraving.</p>
           </div>
           <div className="reserve-card">
-            <span className="section-index">[02] TELEMETRIA</span>
+            <span className="section-index">[02] TELEMETRY</span>
             <h3>TRACK TELEMETRY</h3>
-            <p>Acesso ao aplicativo de telemetria de pista com IA coach de pilotagem.</p>
+            <p>Access to the track telemetry app with AI driving coaching.</p>
           </div>
           <div className="reserve-card">
-            <span className="section-index">[03] SUPORTE</span>
-            <h3>ASSISTÊNCIA 24H</h3>
-            <p>Equipe técnica dedicada em qualquer lugar do globo em menos de 24 horas.</p>
+            <span className="section-index">[03] SUPPORT</span>
+            <h3>24-Hour Assistance</h3>
+            <p>Dedicated technical team anywhere in the world in less than 24 hours.</p>
           </div>
         </div>
 
         <form className="reserve-form" onSubmit={handleReserve}>
-          <input type="email" required placeholder="SEU EMAIL EXCLUSIVO" />
-          <button type="submit">ENVIAR</button>
+          <input type="email" required placeholder="YOUR EMAIL" />
+          <button type="submit">TO SEND</button>
         </form>
         {reserved && (
           <div className="reserve-success">
-            ✓ SOLICITAÇÃO RECEBIDA. UM CONCIERGE ENTRARÁ EM CONTATO.
+            ✓ Request received. A concierge will contact you.
           </div>
         )}
       </section>
 
+
+
       <footer>
         <span>GARAGE. / VEHICLE EXPERIENCE</span>
         <div className="footer-links">
-          <a href="#">PRIVACIDADE</a>
-          <a href="#">TERMOS</a>
+          <a href="#">PRIVACY</a>
+          <a href="#">TERMS</a>
           <a href="#">IMPRENSA</a>
         </div>
         <span>BUILT FOR THE ROAD AHEAD.</span>
       </footer>
+
+
     </main>
   );
 }
