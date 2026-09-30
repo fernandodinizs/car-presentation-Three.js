@@ -2,11 +2,18 @@ import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, Float, Html, OrbitControls } from '@react-three/drei';
-import { gsap } from 'gsap';
-import Lenis from 'lenis';
 import { ArrowUpRight, Gauge, Menu, X, Zap } from 'lucide-react';
+
 import * as THREE from 'three';
+
 import './styles.css';
+
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+
+import Lenis from 'lenis';
+
+gsap.registerPlugin(ScrollTrigger);
   
 const vehicle = {
   brand: 'HONDA',
@@ -25,7 +32,7 @@ const vehicle = {
 
 
 // MODELO 3D  
-function DemoCar({ interactive = false, hideTip = false }) {
+function DemoCar({ interactive = false, hideTip = false, staticSide = false }) {
   const group = useRef();
   const [hovered, setHovered] = useState(false);
 
@@ -53,13 +60,16 @@ function DemoCar({ interactive = false, hideTip = false }) {
       bevelSegments: 2,
       steps: 1,
     });
+
     geometry.translate(0, 0, -1.82 / 2);
     return geometry;
+
   }, []);
 
   useFrame((state, delta) => {
     if (!group.current) return;
-    if (!interactive) {
+
+     if (!interactive && !staticSide) {
       group.current.rotation.y += delta * 0.14;
       group.current.position.y = Math.sin(state.clock.elapsedTime * 0.8) * 0.035;
     }
@@ -146,6 +156,10 @@ function DemoCar({ interactive = false, hideTip = false }) {
     </group>
   );
 
+  if (staticSide) {
+    return body;
+  }
+
   return (
     <>
       <Float speed={1.2} rotationIntensity={0.05} floatIntensity={0.18}>
@@ -162,7 +176,7 @@ function DemoCar({ interactive = false, hideTip = false }) {
 // -----------------------------------------------
 
 
-function VehicleScene({ interactive = false, className = '' }) {
+function VehicleScene({ interactive = false, className = '', staticSide = false}) {
   const [dragged, setDragged] = useState(false);
 
   return (
@@ -178,7 +192,7 @@ function VehicleScene({ interactive = false, className = '' }) {
       <directionalLight position={[-5, 2, -4]} intensity={1.6} />
       <pointLight position={[0, 1.5, 4]} intensity={4} distance={8} />
       <Environment preset="city" environmentIntensity={0.45} />
-      <DemoCar interactive={interactive} hideTip={dragged} />
+      <DemoCar interactive={interactive} hideTip={dragged} staticSide={staticSide}/>
       {interactive && (
         <OrbitControls
           enablePan={false}
@@ -193,6 +207,327 @@ function VehicleScene({ interactive = false, className = '' }) {
     </Canvas>
   );
 }
+
+// ------------- VEHICLE POINTS PERFORM ---------------
+const vehicleInfoPoints = {
+  engine: {
+    number: '01',
+    title: 'MOTOR 2.0L VTEC TURBO',
+    description:
+      'O coração do Type R. Um motor 2.0L VTEC TURBO desenvolvido para entregar potência e resposta imediata quando você mais precisa.',
+    position: {
+      left: '72%', // POSIÇÃO HORIZONTAL
+      top: '53%', //POSIÇÃO VERTICAL
+    },
+  },
+
+  cockpit: {
+    number: '02',
+    title: 'COCKPIT DO MOTORISTA',
+    description:
+      'Tudo foi desenvolvido ao redor do motorista. Controles, posição de condução e instrumentos trabalham juntos para manter o foco na experiência.',
+    position: {
+      left: '57%',
+      top: '38%',
+    },
+  },
+
+  aero: {
+    number: '03',
+    title: 'AEROFÓLIO TRASEIRO',
+    description:
+      'Um elemento aerodinâmico funcional que contribui para estabilidade e presença visual marcante.',
+    position: {
+      left: '29%',
+      top: '47%',
+    },
+  },
+
+  frontWheel: {
+    number: '04',
+    title: 'CONJUNTO DIANTEIRO',
+    description:
+      'O conjunto dianteiro combina aderência, controle e precisão para transmitir confiança nas entradas de curva.',
+    position: {
+      left: '80%',
+      top: '68%',
+    },
+  },
+
+  rearWheel: {
+    number: '05',
+    title: 'CONJUNTO TRASEIRO',
+    description:
+      'Pneus e rodas trabalham em conjunto com o chassi para entregar estabilidade e tração.',
+    position: {
+      left: '31%',
+      top: '68%',
+    },
+  },
+};
+// -------------------------- FIM VEIHCLE POINT --------------------------------------------
+
+// -------------------------- VEIHCLE CARD POINT --------------------------------------------
+function VehicleInfoSection() {
+  const [activePoint, setActivePoint] = useState(null);
+
+  const sectionRef = useRef(null);
+  const cardRef = useRef(null);
+  const lineRef = useRef(null);
+
+  const activeData = activePoint ? vehicleInfoPoints[activePoint] : null;
+
+  /*
+   * Entrada da seção.
+   */
+  useEffect(() => {
+    const section = sectionRef.current;
+
+    if (!section) return;
+
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        '.vehicle-info-title',
+        {
+          y: 50,
+          opacity: 0,
+        },
+        {
+          y: 0,
+          opacity: 1,
+          duration: 1.1,
+          ease: 'power3.out',
+          scrollTrigger: {
+            trigger: section,
+            start: 'top 75%',
+            once: true,
+          },
+        }
+      );
+
+      gsap.fromTo(
+        '.vehicle-hotspot',
+        {
+          scale: 0,
+          opacity: 0,
+        },
+        {
+          scale: 1,
+          opacity: 1,
+          duration: 0.7,
+          stagger: 0.12,
+          ease: 'back.out(1.7)',
+          scrollTrigger: {
+            trigger: section,
+            start: 'top 65%',
+            once: true,
+          },
+        }
+      );
+    }, section);
+
+    return () => ctx.revert();
+  }, []);
+
+  /*
+   * Animação do card quando troca de informação.
+   */
+  useEffect(() => {
+    if (!activeData || !cardRef.current) return;
+
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        cardRef.current,
+        {
+          opacity: 0,
+          x: -35,
+          y: 15,
+        },
+        {
+          opacity: 1,
+          x: 0,
+          y: 0,
+          duration: 0.65,
+          ease: 'power3.out',
+        }
+      );
+
+      if (lineRef.current) {
+        gsap.fromTo(
+          lineRef.current,
+          {
+            scaleX: 0,
+            transformOrigin: 'left center',
+          },
+          {
+            scaleX: 1,
+            duration: 0.65,
+            ease: 'power3.out',
+          }
+        );
+      }
+    });
+
+    return () => ctx.revert();
+  }, [activePoint, activeData]);
+
+  const handlePointClick = (point) => {
+    setActivePoint(point);
+  };
+
+  const closeInfo = () => {
+    if (!cardRef.current) {
+      setActivePoint(null);
+      return;
+    }
+
+    gsap.to(cardRef.current, {
+      opacity: 0,
+      x: -25,
+      duration: 0.35,
+      ease: 'power2.in',
+      onComplete: () => {
+        setActivePoint(null);
+      },
+    });
+  };
+
+  return (
+    <section
+      ref={sectionRef}
+      className="vehicle-info-section"
+      id="vehicle-details"
+    >
+      <div className="vehicle-info-header">
+        <div className="section-index">
+          02 / THE MACHINE
+        </div>
+
+        <div className="vehicle-info-title">
+          <div className="eyebrow">
+            EXPLORE / DETAILS
+          </div>
+
+          <h2>
+            EVERY
+            <br />
+            <em>DETAIL.</em>
+          </h2>
+        </div>
+
+        <p className="vehicle-info-description">
+          Explore the machine. Click on each point to
+          discover the details behind the design.
+        </p>
+      </div>
+
+      <div className="vehicle-info-stage">
+
+        {/* MODELO 3D */}
+        <div className="vehicle-info-model">
+          <VehicleScene staticSide />
+        </div>
+
+        {/* LINHA DE CONEXÃO */}
+        {activeData && (
+          <svg
+            className="vehicle-info-line"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <line
+              ref={lineRef}
+              x1="27"
+              y1="76"
+              x2={parseFloat(activeData.position.left)}
+              y2={parseFloat(activeData.position.top)}
+            />
+          </svg>
+        )}
+
+        {/* HOTSPOTS */}
+        {Object.entries(vehicleInfoPoints).map(
+          ([key, point]) => {
+            const isActive =
+              activePoint === key;
+
+            return (
+              <button
+                key={key}
+                type="button"
+                className={`vehicle-hotspot ${
+                  isActive ? 'active' : ''
+                }`}
+                style={{
+                  left: point.position.left,
+                  top: point.position.top,
+                }}
+                onClick={() => handlePointClick(key)}
+                aria-label={`Ver ${point.title}`}
+              >
+                <span className="hotspot-core" />
+                <span className="hotspot-ring" />
+              </button>
+            );
+          }
+        )}
+
+        {/* CARD */}
+        {activeData && (
+          <article
+            ref={cardRef}
+            className="vehicle-info-card"
+          >
+            <button
+              type="button"
+              className="vehicle-info-close"
+              onClick={closeInfo}
+              aria-label="Fechar informação"
+            >
+              ×
+            </button>
+
+            <span className="vehicle-info-number">
+              [{activeData.number}]
+            </span>
+
+            <h3>
+              {activeData.title}
+            </h3>
+
+            <p>
+              {activeData.description}
+            </p>
+
+            <div className="vehicle-info-card-footer">
+              <span>
+                GARAGE / TECHNICAL DETAIL
+              </span>
+
+              <span>
+                {activeData.number}/05
+              </span>
+            </div>
+          </article>
+        )}
+
+        {/* TEXTO INFERIOR */}
+        <div className="vehicle-info-footer">
+          <span>
+            SELECT A POINT
+          </span>
+
+          <span>
+            05 AVAILABLE
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
+// -------------------------- FIM VEIHCLE CARD POINT --------------------------------------------
+
 
 
 // NAVBAR
@@ -221,33 +556,8 @@ function Nav({ open, setOpen }) {
         <div className="nav-right">
           <a href="#reserve" className="nav-cta">RESERVE</a>
 
-          {/* MENU - TIRAR DEPOIS TALVEZ */}
-          {/* <button className="menu-btn" onClick={() => setOpen(!open)} aria-label="Abrir menu">
-            {open ? <X size={19} /> : <Menu size={19} />}
-            <span>MENU</span>
-          </button> */} 
-          {/* --------------------------------------- */}
-
-
         </div>
       </header>
-
-      {/* MENU - TIRAR DEPOIS TALVEZ */}
-
-      {/* <div className={`menu-panel ${open ? 'open' : ''}`}>
-        {['Design', 'Performance', 'Dimensions', 'Cockpit', 'Reserva'].map((item, i) => (
-          <a 
-            key={item}
-            href={i < 4 ? `#section-${i + 1}` : '#reserve'}
-            onClick={() => setOpen(false)}
-          >
-            <span>0{i + 1}</span>{item}
-          </a>
-        ))}
-      </div> */}
-
-      {/* --------------------------------------- */}
-
 
     </>
   );
@@ -256,14 +566,37 @@ function Nav({ open, setOpen }) {
 
 function Reveal({ children, className = '' }) {
   const ref = useRef();
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    gsap.fromTo(el, { y: 42, opacity: 0 }, {
-      y: 0, opacity: 1, duration: 1.1, ease: 'power3.out',
-      scrollTrigger: { trigger: el, start: 'top 84%', once: true }
-    });
+
+    const animation = gsap.fromTo(
+      el,
+      {
+        y: 42,
+        opacity: 0,
+      },
+      {
+        y: 0,
+        opacity: 1,
+        duration: 1.1,
+        ease: 'power3.out',
+
+        scrollTrigger: {
+          trigger: el,
+          start: 'top 84%',
+          once: true,
+        },
+      }
+    );
+
+    return () => {
+      animation.kill();
+    };
+
   }, []);
+
   return <div ref={ref} className={className}>{children}</div>;
 }
 
@@ -289,34 +622,78 @@ function App() {
 
 
   useEffect(() => {
-    // GSAP ScrollTrigger is loaded dynamically to keep this single-file demo simple.
-    let cleanup = () => {};
-    import('gsap/ScrollTrigger').then(({ ScrollTrigger }) => {
-      gsap.registerPlugin(ScrollTrigger);
-      const ctx = gsap.context(() => {
-        gsap.to('.hero-copy', {
-          yPercent: 35, opacity: 0.15,
-          scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true }
-        });
-        gsap.to('.hero-model', {
-          scale: 0.76, yPercent: 18, rotate: 3,
-          scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true }
-        });
-        gsap.utils.toArray('.parallax-word').forEach((el) => {
+    const ctx = gsap.context(() => {
+
+      gsap.to('.hero-copy', {
+        yPercent: 35,
+        opacity: 0.15,
+
+        scrollTrigger: {
+          trigger: '.hero',
+          start: 'top top',
+          end: 'bottom top',
+          scrub: true,
+        },
+      });
+
+      gsap.to('.hero-model', {
+        scale: 0.76,
+        yPercent: 18,
+        rotate: 3,
+
+        scrollTrigger: {
+          trigger: '.hero',
+          start: 'top top',
+          end: 'bottom top',
+          scrub: true,
+        },
+      });
+
+      gsap.utils
+        .toArray('.parallax-word')
+        .forEach((el) => {
+
           gsap.to(el, {
             xPercent: el.dataset.direction || 8,
-            scrollTrigger: { trigger: el, start: 'top bottom', end: 'bottom top', scrub: true }
+
+            scrollTrigger: {
+              trigger: el,
+              start: 'top bottom',
+              end: 'bottom top',
+              scrub: true,
+            },
           });
+
         });
-      });
-      cleanup = () => ctx.revert();
-      ScrollTrigger.refresh();
+
     });
-    const lenis = new Lenis({ duration: 1.15, smoothWheel: true, syncTouch: true });
+
+    const lenis = new Lenis({
+      duration: 1.15,
+      smoothWheel: true,
+      syncTouch: true,
+    });
+
     let rafId;
-    const raf = (time) => { lenis.raf(time); rafId = requestAnimationFrame(raf); };
+
+    const raf = (time) => {
+      lenis.raf(time);
+
+      ScrollTrigger.update();
+
+      rafId = requestAnimationFrame(raf);
+    };
+
     rafId = requestAnimationFrame(raf);
-    return () => { cleanup(); cancelAnimationFrame(rafId); lenis.destroy(); };
+
+    return () => {
+      ctx.revert();
+
+      cancelAnimationFrame(rafId);
+
+      lenis.destroy();
+    };
+
   }, []);
 
 // -----------------------------------------------------------------------------
@@ -360,6 +737,7 @@ function App() {
       </section>
 
 
+      <VehicleInfoSection />
 
       <section className="split-section dark" id="section-2">
         <div className="split-copy">
