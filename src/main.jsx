@@ -208,64 +208,66 @@ function VehicleScene({ interactive = false, className = '', staticSide = false}
   );
 }
 
-// ------------- VEHICLE POINTS PERFORM ---------------
+
+
+// ------------- VEHICLE INFORMATION POINTS PERFORM ---------------
 const vehicleInfoPoints = {
   engine: {
     number: '01',
-    title: 'MOTOR 2.0L VTEC TURBO',
+    title: '2.0L VTEC Turbo Engine',
     description:
-      'O coração do Type R. Um motor 2.0L VTEC TURBO desenvolvido para entregar potência e resposta imediata quando você mais precisa.',
+      'The heart of the Type R. A 2.0L VTEC TURBO engine developed to deliver power and immediate response when you need it most.',
     position: {
-      left: '72%', // POSIÇÃO HORIZONTAL
-      top: '53%', //POSIÇÃO VERTICAL
+      left: '76%', // POSIÇÃO HORIZONTAL
+      top: '36%', //POSIÇÃO VERTICAL
     },
   },
 
   cockpit: {
     number: '02',
-    title: 'COCKPIT DO MOTORISTA',
+    title: "DRIVER'S COCKPIT",
     description:
-      'Tudo foi desenvolvido ao redor do motorista. Controles, posição de condução e instrumentos trabalham juntos para manter o foco na experiência.',
+      'Everything was designed around the driver. Controls, driving position, and instruments work together to keep the focus on the experience.',
     position: {
-      left: '57%',
-      top: '38%',
+      left: '66%',
+      top: '23%',
     },
   },
 
   aero: {
     number: '03',
-    title: 'AEROFÓLIO TRASEIRO',
+    title: 'REAR SPOILER',
     description:
-      'Um elemento aerodinâmico funcional que contribui para estabilidade e presença visual marcante.',
+      'A functional aerodynamic element that contributes to stability and a striking visual presence..',
     position: {
-      left: '29%',
-      top: '47%',
+      left: '32%',
+      top: '23%',
     },
   },
 
   frontWheel: {
     number: '04',
-    title: 'CONJUNTO DIANTEIRO',
+    title: 'FRONT ASSEMBLY',
     description:
-      'O conjunto dianteiro combina aderência, controle e precisão para transmitir confiança nas entradas de curva.',
+      'The front-end setup combines grip, control, and precision to inspire confidence upon entering corners.',
     position: {
-      left: '80%',
-      top: '68%',
+      left: '70%',
+      top: '55%',
     },
   },
 
   rearWheel: {
     number: '05',
-    title: 'CONJUNTO TRASEIRO',
+    title: 'REAR ASSEMBLY',
     description:
-      'Pneus e rodas trabalham em conjunto com o chassi para entregar estabilidade e tração.',
+      'Tires and wheels work together with the chassis to deliver stability and traction.',
     position: {
-      left: '31%',
-      top: '68%',
+      left: '34%',
+      top: '41%',
     },
   },
 };
-// -------------------------- FIM VEIHCLE POINT --------------------------------------------
+// -------------------------- FIM VEIHCLE INFORMATION POINT --------------------------------------------
 
 // -------------------------- VEIHCLE CARD POINT --------------------------------------------
 function VehicleInfoSection() {
@@ -392,15 +394,13 @@ function VehicleInfoSection() {
     });
   };
 
+
   return (
-    <section
-      ref={sectionRef}
-      className="vehicle-info-section"
-      id="vehicle-details"
-    >
+    <section ref={sectionRef} className="vehicle-info-section" id="section-6">
+      <div className="final-watermark">TYPE R</div>
       <div className="vehicle-info-header">
         <div className="section-index">
-          02 / THE MACHINE
+          06 / THE MACHINE
         </div>
 
         <div className="vehicle-info-title">
@@ -408,10 +408,8 @@ function VehicleInfoSection() {
             EXPLORE / DETAILS
           </div>
 
-          <h2>
-            EVERY
-            <br />
-            <em>DETAIL.</em>
+          <h2>EVERY <br/>
+            <em>DETAIL</em>
           </h2>
         </div>
 
@@ -422,7 +420,6 @@ function VehicleInfoSection() {
       </div>
 
       <div className="vehicle-info-stage">
-
         {/* MODELO 3D */}
         <div className="vehicle-info-model">
           <VehicleScene staticSide />
@@ -430,12 +427,7 @@ function VehicleInfoSection() {
 
         {/* LINHA DE CONEXÃO */}
         {activeData && (
-          <svg
-            className="vehicle-info-line"
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-          >
+          <svg className="vehicle-info-line" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
             <line
               ref={lineRef}
               x1="27"
@@ -475,10 +467,7 @@ function VehicleInfoSection() {
 
         {/* CARD */}
         {activeData && (
-          <article
-            ref={cardRef}
-            className="vehicle-info-card"
-          >
+          <article ref={cardRef} className="vehicle-info-card">
             <button
               type="button"
               className="vehicle-info-close"
@@ -488,40 +477,24 @@ function VehicleInfoSection() {
               ×
             </button>
 
-            <span className="vehicle-info-number">
-              [{activeData.number}]
-            </span>
-
-            <h3>
-              {activeData.title}
-            </h3>
-
-            <p>
-              {activeData.description}
-            </p>
+            <span className="vehicle-info-number"> [{activeData.number}] </span>
+            <h3> {activeData.title} </h3>
+            <p> {activeData.description} </p>
 
             <div className="vehicle-info-card-footer">
-              <span>
-                GARAGE / TECHNICAL DETAIL
-              </span>
-
-              <span>
-                {activeData.number}/05
-              </span>
+              <span> GARAGE / TECHNICAL DETAIL </span>
+              <span> {activeData.number}/05 </span>
             </div>
+
           </article>
         )}
 
         {/* TEXTO INFERIOR */}
         <div className="vehicle-info-footer">
-          <span>
-            SELECT A POINT
-          </span>
-
-          <span>
-            05 AVAILABLE
-          </span>
+          <span> SELECT A POINT </span>
+          <span> 05 AVAILABLE </span>
         </div>
+
       </div>
     </section>
   );
@@ -737,8 +710,6 @@ function App() {
       </section>
 
 
-      <VehicleInfoSection />
-
       <section className="split-section dark" id="section-2">
         <div className="split-copy">
           <div className="section-index">02 / PERFORMANCE</div>
@@ -808,23 +779,7 @@ function App() {
           <VehicleScene interactive />
         </div>
       </section>
-
-
-
-      <section className="final-section" id="section-6">
-        <div className="final-watermark">TYPE R</div>
-        <div className="final-content">
-          <div className="eyebrow">06 / THE MACHINE</div>
-          <h2>ENGINEERED<br /><em>TO BE FELT</em></h2>
-          <div className="final-specs">
-            <span>{vehicle.transmission}</span>
-            <span>{vehicle.engine}</span>
-            <span>{vehicle.year} / TYPE R</span>
-          </div>
-          
-        </div>
-        <div className="final-model"><VehicleScene /></div>
-      </section>
+      <VehicleInfoSection />
 
 
 
