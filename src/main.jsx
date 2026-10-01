@@ -1,8 +1,8 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Environment, Float, Html, OrbitControls } from '@react-three/drei';
-import { ArrowUpRight, Gauge, Menu, X, Zap } from 'lucide-react';
+import { Environment, Float, Html, OrbitControls, Preload } from '@react-three/drei';
+import { ArrowUpRight, Gauge, Zap } from 'lucide-react';
 
 import * as THREE from 'three';
 
@@ -12,9 +12,14 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 import Lenis from 'lenis';
+import 'lenis/dist/lenis.css';
 
 gsap.registerPlugin(ScrollTrigger);
-  
+
+let lenis = null;     // instância global
+let snapApi = null;   // usada pelo Nav (navegação por links)
+const q = (el) => gsap.utils.selector(el);
+
 const vehicle = {
   brand: 'HONDA',
   model: 'CIVIC TYPE R',
@@ -31,7 +36,9 @@ const vehicle = {
 };
 
 
-// MODELO 3D  
+// ----------------------------------------------------------------------------------------
+//                                      MODELO 3D
+// ----------------------------------------------------------------------------------------
 function DemoCar({ interactive = false, hideTip = false, staticSide = false }) {
   const group = useRef();
   const [hovered, setHovered] = useState(false);
@@ -63,13 +70,12 @@ function DemoCar({ interactive = false, hideTip = false, staticSide = false }) {
 
     geometry.translate(0, 0, -1.82 / 2);
     return geometry;
-
   }, []);
 
   useFrame((state, delta) => {
     if (!group.current) return;
 
-     if (!interactive && !staticSide) {
+    if (!interactive && !staticSide) {
       group.current.rotation.y += delta * 0.14;
       group.current.position.y = Math.sin(state.clock.elapsedTime * 0.8) * 0.035;
     }
@@ -173,10 +179,23 @@ function DemoCar({ interactive = false, hideTip = false, staticSide = false }) {
     </>
   );
 }
-// -----------------------------------------------
 
+// avisa quando tudo dentro do Suspense terminou de carregar
+function Ready({ onReady }) {
+  useEffect(() => {
+    let id2;
+    const id1 = requestAnimationFrame(() => {
+      id2 = requestAnimationFrame(() => onReady?.());
+    });
+    return () => {
+      cancelAnimationFrame(id1);
+      cancelAnimationFrame(id2);
+    };
+  }, []);
+  return null;
+}
 
-function VehicleScene({ interactive = false, className = '', staticSide = false}) {
+function VehicleScene({ interactive = false, className = '', staticSide = false, onReady }) {
   const [dragged, setDragged] = useState(false);
 
   return (
@@ -191,11 +210,18 @@ function VehicleScene({ interactive = false, className = '', staticSide = false}
       <directionalLight position={[4, 6, 5]} intensity={3.2} castShadow />
       <directionalLight position={[-5, 2, -4]} intensity={1.6} />
       <pointLight position={[0, 1.5, 4]} intensity={4} distance={8} />
-      <Environment preset="city" environmentIntensity={0.45} />
-      <DemoCar interactive={interactive} hideTip={dragged} staticSide={staticSide}/>
+
+      <Suspense fallback={null}>
+        <Environment preset="city" environmentIntensity={0.45} />
+        <DemoCar interactive={interactive} hideTip={dragged} staticSide={staticSide} />
+        <Preload all />
+        <Ready onReady={onReady} />
+      </Suspense>
+
       {interactive && (
         <OrbitControls
           enablePan={false}
+          enableZoom={false}
           minDistance={4}
           maxDistance={8}
           minPolarAngle={Math.PI / 3.1}
@@ -209,8 +235,35 @@ function VehicleScene({ interactive = false, className = '', staticSide = false}
 }
 
 
+// ----------------------------------------------------------------------------------------
+//                                   LOADER (UMA VEZ SÓ)
+// ----------------------------------------------------------------------------------------
+function Loader({ ready }) {
+  const ref = useRef(null);
 
-// ------------- VEHICLE INFORMATION POINTS PERFORM ---------------
+  useEffect(() => {
+    if (!ready || !ref.current) return;
+    gsap.to(ref.current, {
+      opacity: 0,
+      duration: 0.8,
+      ease: 'power2.out',
+      onComplete: () => {
+        if (ref.current) ref.current.style.display = 'none';
+      },
+    });
+  }, [ready]);
+
+  return (
+    <div ref={ref} className="loader">
+      <span>LOADING EXPERIENCE...</span>
+    </div>
+  );
+}
+
+
+// ----------------------------------------------------------------------------------------
+//                              VEHICLE INFORMATION POINTS
+// ----------------------------------------------------------------------------------------
 const vehicleInfoPoints = {
   engine: {
     number: '01',
@@ -219,7 +272,7 @@ const vehicleInfoPoints = {
       'The heart of the Type R. A 2.0L VTEC TURBO engine developed to deliver power and immediate response when you need it most.',
     position: {
       left: '76%', // POSIÇÃO HORIZONTAL
-      top: '36%', //POSIÇÃO VERTICAL
+      top: '36%',  // POSIÇÃO VERTICAL
     },
   },
 
@@ -267,105 +320,31 @@ const vehicleInfoPoints = {
     },
   },
 };
-// -------------------------- FIM VEIHCLE INFORMATION POINT --------------------------------------------
 
-// -------------------------- VEIHCLE CARD POINT --------------------------------------------
 function VehicleInfoSection() {
   const [activePoint, setActivePoint] = useState(null);
 
-  const sectionRef = useRef(null);
   const cardRef = useRef(null);
   const lineRef = useRef(null);
 
   const activeData = activePoint ? vehicleInfoPoints[activePoint] : null;
 
-  /*
-   * Entrada da seção.
-   */
-  useEffect(() => {
-    const section = sectionRef.current;
-
-    if (!section) return;
-
-    const ctx = gsap.context(() => {
-      gsap.fromTo(
-        '.vehicle-info-title',
-        {
-          y: 50,
-          opacity: 0,
-        },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 1.1,
-          ease: 'power3.out',
-          scrollTrigger: {
-            trigger: section,
-            start: 'top 75%',
-            once: true,
-          },
-        }
-      );
-
-      gsap.fromTo(
-        '.vehicle-hotspot',
-        {
-          scale: 0,
-          opacity: 0,
-        },
-        {
-          scale: 1,
-          opacity: 1,
-          duration: 0.7,
-          stagger: 0.12,
-          ease: 'back.out(1.7)',
-          scrollTrigger: {
-            trigger: section,
-            start: 'top 65%',
-            once: true,
-          },
-        }
-      );
-    }, section);
-
-    return () => ctx.revert();
-  }, []);
-
-  /*
-   * Animação do card quando troca de informação.
-   */
+  // animação do card quando troca de informação
   useEffect(() => {
     if (!activeData || !cardRef.current) return;
 
     const ctx = gsap.context(() => {
       gsap.fromTo(
         cardRef.current,
-        {
-          opacity: 0,
-          x: -35,
-          y: 15,
-        },
-        {
-          opacity: 1,
-          x: 0,
-          y: 0,
-          duration: 0.65,
-          ease: 'power3.out',
-        }
+        { opacity: 0, x: -35, y: 15 },
+        { opacity: 1, x: 0, y: 0, duration: 0.65, ease: 'power3.out' }
       );
 
       if (lineRef.current) {
         gsap.fromTo(
           lineRef.current,
-          {
-            scaleX: 0,
-            transformOrigin: 'left center',
-          },
-          {
-            scaleX: 1,
-            duration: 0.65,
-            ease: 'power3.out',
-          }
+          { scaleX: 0, transformOrigin: 'left center' },
+          { scaleX: 1, duration: 0.65, ease: 'power3.out' }
         );
       }
     });
@@ -394,21 +373,16 @@ function VehicleInfoSection() {
     });
   };
 
-
   return (
-    <section ref={sectionRef} className="vehicle-info-section" id="section-6">
+    <section className="vehicle-info-section snap-section" id="section-6">
       <div className="final-watermark">TYPE R</div>
       <div className="vehicle-info-header">
-        <div className="section-index">
-          06 / THE MACHINE
-        </div>
+        <div className="section-index">06 / THE MACHINE</div>
 
         <div className="vehicle-info-title">
-          <div className="eyebrow">
-            EXPLORE / DETAILS
-          </div>
+          <div className="eyebrow">EXPLORE / DETAILS</div>
 
-          <h2>EVERY <br/>
+          <h2>EVERY <br />
             <em>DETAIL</em>
           </h2>
         </div>
@@ -439,31 +413,23 @@ function VehicleInfoSection() {
         )}
 
         {/* HOTSPOTS */}
-        {Object.entries(vehicleInfoPoints).map(
-          ([key, point]) => {
-            const isActive =
-              activePoint === key;
+        {Object.entries(vehicleInfoPoints).map(([key, point]) => {
+          const isActive = activePoint === key;
 
-            return (
-              <button
-                key={key}
-                type="button"
-                className={`vehicle-hotspot ${
-                  isActive ? 'active' : ''
-                }`}
-                style={{
-                  left: point.position.left,
-                  top: point.position.top,
-                }}
-                onClick={() => handlePointClick(key)}
-                aria-label={`Ver ${point.title}`}
-              >
-                <span className="hotspot-core" />
-                <span className="hotspot-ring" />
-              </button>
-            );
-          }
-        )}
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`vehicle-hotspot ${isActive ? 'active' : ''}`}
+              style={{ left: point.position.left, top: point.position.top }}
+              onClick={() => handlePointClick(key)}
+              aria-label={`Ver ${point.title}`}
+            >
+              <span className="hotspot-core" />
+              <span className="hotspot-ring" />
+            </button>
+          );
+        })}
 
         {/* CARD */}
         {activeData && (
@@ -485,7 +451,6 @@ function VehicleInfoSection() {
               <span> GARAGE / TECHNICAL DETAIL </span>
               <span> {activeData.number}/05 </span>
             </div>
-
           </article>
         )}
 
@@ -494,18 +459,18 @@ function VehicleInfoSection() {
           <span> SELECT A POINT </span>
           <span> 05 AVAILABLE </span>
         </div>
-
       </div>
     </section>
   );
 }
-// -------------------------- FIM VEIHCLE CARD POINT --------------------------------------------
 
 
+// ----------------------------------------------------------------------------------------
+//                                          NAVBAR
+// ----------------------------------------------------------------------------------------
+const goSnap = (id) => (e) => { if (snapApi?.goToId(id)) e.preventDefault(); };
 
-// NAVBAR
-function Nav({ open, setOpen }) {
-
+function Nav() {
   const links = [
     { href: '#section-1', label: 'DESIGN' },
     { href: '#section-2', label: 'PERFORMANCE' },
@@ -516,61 +481,26 @@ function Nav({ open, setOpen }) {
   ];
 
   return (
-    <>
-      <header className="nav">
-        <a href="#top" className="logo">GARAGE<span>.</span></a>
+    <header className="nav">
+      <a href="#top" className="logo" onClick={goSnap('top')}>GARAGE<span>.</span></a>
 
-         <nav className="nav-links">
-          {links.map((link, i) => (
-            <a key={link.href} href={link.href}>[0{i + 1}] {link.label}</a>
-          ))}
-        </nav>
+      <nav className="nav-links">
+        {links.map((link, i) => (
+          <a key={link.href} href={link.href} onClick={goSnap(link.href.slice(1))}>
+            [0{i + 1}] {link.label}
+          </a>
+        ))}
+      </nav>
 
-        <div className="nav-right">
-          <a href="#reserve" className="nav-cta">RESERVE</a>
-
-        </div>
-      </header>
-
-    </>
+      <div className="nav-right">
+        <a href="#reserve" className="nav-cta" onClick={goSnap('reserve')}>RESERVE</a>
+      </div>
+    </header>
   );
 }
-// ----------------------
 
 function Reveal({ children, className = '' }) {
-  const ref = useRef();
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const animation = gsap.fromTo(
-      el,
-      {
-        y: 42,
-        opacity: 0,
-      },
-      {
-        y: 0,
-        opacity: 1,
-        duration: 1.1,
-        ease: 'power3.out',
-
-        scrollTrigger: {
-          trigger: el,
-          start: 'top 84%',
-          once: true,
-        },
-      }
-    );
-
-    return () => {
-      animation.kill();
-    };
-
-  }, []);
-
-  return <div ref={ref} className={className}>{children}</div>;
+  return <div className={className}>{children}</div>;
 }
 
 function Metric({ value, label, sub }) {
@@ -583,121 +513,351 @@ function Metric({ value, label, sub }) {
   );
 }
 
-function App() {
-  const [menuOpen, setMenuOpen] = useState(false);
 
+// ----------------------------------------------------------------------------------------
+//                                    INTRO (SCRUB + PIN)
+// ----------------------------------------------------------------------------------------
+function buildIntro() {
+  const model = document.querySelector('.hero-model');
+  // distância para o carro ficar centralizado na tela
+  const centerX = () => window.innerWidth / 2 - (model.offsetLeft + model.offsetWidth / 2);
+
+  const tl = gsap.timeline({
+    defaults: { ease: 'none' },
+    scrollTrigger: {
+      trigger: '.hero',
+      start: 'top top',
+      end: '+=450%',          // quanto "scroll" a intro consome
+      scrub: true,            // o Lenis já suaviza
+      pin: true,
+      anticipatePin: 1,
+      invalidateOnRefresh: true,
+    },
+  });
+
+  tl.to('.intro-cue', { opacity: 0, duration: 0.3 }, 0)
+    // 1) título vem "pra frente" e some
+    .to('.intro-title', { scale: 22, opacity: 0, ease: 'power2.in', duration: 1.6 }, 0)
+    .to('.hero-grid', { scale: 1.6, duration: 3.2 }, 0)
+    // 2) carro surge no centro
+    .fromTo(model, { opacity: 0, scale: 0.35, x: centerX },
+      { opacity: 1, scale: 0.85, x: centerX, ease: 'power2.out', duration: 1.4 }, 1)
+    // 3) carro vai pro lado
+    .to(model, { x: 0, scale: 1, ease: 'power3.inOut', duration: 1.4 }, 2.7)
+    // 4) hero atual aparece
+    .fromTo('.hero-copy > *', { opacity: 0, x: -60 },
+      { opacity: 1, x: 0, ease: 'power2.out', duration: 0.8, stagger: 0.15 }, 3.3)
+    .fromTo('.hero-stat,.hero-side', { opacity: 0 }, { opacity: 1, duration: 0.6 }, 4)
+    .to({}, { duration: 0.4 }); // respiro final
+
+  return tl.scrollTrigger;
+}
+
+
+// ----------------------------------------------------------------------------------------
+//                               ANIMAÇÃO DE CADA SEÇÃO
+//   enter  = entrada   (roda quando a seção "gruda" na tela)
+//   middle = trecho do meio (opcional, ex.: scroll lateral)
+//   exit   = saída     (roda antes de a seção soltar)
+//   d = direção (sempre 1 aqui; ao subir, o scrub toca tudo ao contrário sozinho)
+// ----------------------------------------------------------------------------------------
+const hPanels = [
+  { k: 'ENGINE', v: '2.0', u: 'L VTEC TURBO' },
+  { k: 'TRANSMISSION', v: '6', u: '-SPEED MANUAL' },
+  { k: 'CURB WEIGHT', v: '1,430', u: 'KG' },
+  { k: 'WHEELBASE', v: '2.735', u: 'M' },
+];
+
+const sectionFX = {
+  // 01 DESIGN: texto sobe e entra girando levemente
+  'section-1': {
+    targets: '.section-index,.giant-copy,.statement-bottom',
+    enter: (el, d) => gsap.timeline()
+      .fromTo(q(el)('.giant-copy'), { opacity: 0, yPercent: 60 * d, rotate: 2 * d },
+        { opacity: 1, yPercent: 0, rotate: 0, duration: 1, ease: 'power4.out', stagger: 0.12 }, 0)
+      .fromTo(q(el)('.section-index,.statement-bottom'), { opacity: 0, y: 20 * d },
+        { opacity: 1, y: 0, duration: 0.6 }, 0.3),
+
+    exit: (el, d) => gsap.timeline()
+      .to(q(el)('.giant-copy'), { opacity: 0, yPercent: -40 * d, duration: 0.5, ease: 'power3.in', stagger: 0.06 })
+      .to(q(el)('.section-index,.statement-bottom'), { opacity: 0, duration: 0.3 }, 0),
+  },
+
+  // 02 PERFORMANCE: texto da esquerda, métricas sobem em cascata
+  'section-2': {
+    targets: '.section-index,.split-copy h2,.split-copy p,.metric',
+    enter: (el, d) => gsap.timeline()
+      .fromTo(q(el)('.section-index,.split-copy h2,.split-copy p'), { opacity: 0, x: -80, scale: 1 },
+        { opacity: 1, x: 0, scale: 1, duration: 0.9, ease: 'power3.out', stagger: 0.1 }, 0)
+      .fromTo(q(el)('.metric'), { opacity: 0, y: 60 * d, scale: 1 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.8, ease: 'power3.out', stagger: 0.1 }, 0.15),
+
+    exit: (el) => gsap.timeline()
+      .to(q(el)('.section-index,.split-copy h2,.split-copy p,.metric'),
+        { opacity: 0, scale: 0.94, duration: 0.45, ease: 'power2.in', stagger: 0.04 }),
+  },
+
+  // 03 DIMENSIONS: as linhas de cota "se desenham"
+  'section-3': {
+    targets: '.section-index,.dimension-layout h2,.muted-copy,.dim-visual,.dim-grid > div',
+    enter: (el, d) => gsap.timeline()
+      .fromTo(q(el)('.section-index,.dimension-layout h2,.muted-copy'), { opacity: 0, y: 50 * d },
+        { opacity: 1, y: 0, duration: 0.9, ease: 'power3.out', stagger: 0.1 }, 0)
+      .fromTo(q(el)('.dim-visual'), { opacity: 0, y: 0 }, { opacity: 1, y: 0, duration: 0.5 }, 0.2)
+      .fromTo(q(el)('.dim-line.horizontal'), { scaleX: 0 }, { scaleX: 1, duration: 0.9, ease: 'power3.inOut' }, 0.4)
+      .fromTo(q(el)('.dim-line.vertical'), { scaleY: 0, transformOrigin: 'top' },
+        { scaleY: 1, duration: 0.9, ease: 'power3.inOut' }, 0.5)
+      .fromTo(q(el)('.dim-grid > div'), { opacity: 0, y: 30 },
+        { opacity: 1, y: 0, duration: 0.6, stagger: 0.08 }, 0.6),
+
+    exit: (el, d) => gsap.timeline()
+      .to(q(el)('.section-index,.dimension-layout h2,.muted-copy,.dim-visual,.dim-grid > div'),
+        { opacity: 0, y: -30 * d, duration: 0.45, ease: 'power2.in', stagger: 0.03 }),
+  },
+
+  // SCROLL LATERAL: o trilho anda junto com o scroll
+  'section-hscroll': {
+    targets: '.section-index,.h-viewport,.h-progress',
+    enter: (el, d) => {
+      gsap.set(q(el)('.h-track'), { x: 0 });
+      gsap.set(q(el)('.h-bar'), { scaleX: 0.25 });
+      return gsap.timeline()
+        .fromTo(q(el)('.section-index,.h-progress'), { opacity: 0, x: 0, y: 20 },
+          { opacity: 1, x: 0, y: 0, duration: 0.6, stagger: 0.1 }, 0)
+        .fromTo(q(el)('.h-viewport'), { opacity: 0, x: 120 * d },
+          { opacity: 1, x: 0, duration: 0.9, ease: 'power3.out' }, 0.1);
+    },
+    // trecho do meio: o trilho anda enquanto você rola
+    middle: (el) => gsap.timeline()
+      .to(q(el)('.h-track'), { x: () => -(hPanels.length - 1) * window.innerWidth, ease: 'none', duration: 3 }, 0)
+      .to(q(el)('.h-bar'), { scaleX: 1, ease: 'none', duration: 3 }, 0),
+
+    exit: (el, d) => gsap.timeline()
+      .to(q(el)('.section-index,.h-viewport,.h-progress'), { opacity: 0, x: -80 * d, duration: 0.45, ease: 'power2.in' }),
+  },
+
+  // 04 COCKPIT: o painel é revelado com clip-path (não mexe no transform 3D do CSS)
+  'section-4': {
+    targets: '.section-index,.cockpit-copy > *,.cockpit-visual,.dash-card',
+    enter: (el) => gsap.timeline()
+      .fromTo(q(el)('.section-index,.cockpit-copy > *'), { opacity: 0, x: -60 },
+        { opacity: 1, x: 0, duration: 0.9, ease: 'power3.out', stagger: 0.1 }, 0)
+      .fromTo(q(el)('.cockpit-visual'), { opacity: 0, clipPath: 'inset(0 0 0 100%)' },
+        { opacity: 1, clipPath: 'inset(0 0 0 0%)', duration: 1.1, ease: 'power3.inOut' }, 0.1)
+      .fromTo(q(el)('.dash-card'), { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.6, stagger: 0.15 }, 0.8),
+
+    exit: (el) => gsap.timeline()
+      .to(q(el)('.section-index,.cockpit-copy > *'), { opacity: 0, x: -40, duration: 0.4, stagger: 0.04 })
+      .to(q(el)('.cockpit-visual'), { clipPath: 'inset(0 100% 0 0)', duration: 0.5, ease: 'power3.in' }, 0),
+  },
+
+  // 05 INTERACT: modelo "cresce" de dentro da seção
+  'section-5': {
+    targets: '.section-index,.interactive-head > *,.interactive-model',
+    enter: (el, d) => gsap.timeline()
+      .fromTo(q(el)('.section-index,.interactive-head > *'), { opacity: 0, y: -40 * d },
+        { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out', stagger: 0.1 }, 0)
+      .fromTo(q(el)('.interactive-model'), { opacity: 0, scale: 0.8, y: 60 * d },
+        { opacity: 1, scale: 1, y: 0, duration: 1.1, ease: 'power3.out' }, 0.15),
+
+    exit: (el) => gsap.timeline()
+      .to(q(el)('.interactive-model'), { opacity: 0, scale: 0.9, duration: 0.5, ease: 'power2.in' })
+      .to(q(el)('.section-index,.interactive-head > *'), { opacity: 0, duration: 0.3 }, 0),
+  },
+
+  // 06 THE MACHINE
+  'section-6': {
+    targets: '.vehicle-info-header > *,.vehicle-info-model,.vehicle-hotspot,.vehicle-info-footer',
+    enter: (el, d) => gsap.timeline()
+      .fromTo(q(el)('.vehicle-info-header > *'), { opacity: 0, y: 40 * d },
+        { opacity: 1, y: 0, duration: 0.9, ease: 'power3.out', stagger: 0.1 }, 0)
+      .fromTo(q(el)('.vehicle-info-model'), { opacity: 0, x: 120 * d },
+        { opacity: 1, x: 0, duration: 1.1, ease: 'power3.out' }, 0.1)
+      .fromTo(q(el)('.vehicle-hotspot'), { opacity: 0, scale: 0 },
+        { opacity: 1, scale: 1, duration: 0.6, stagger: 0.1, ease: 'back.out(1.7)' }, 0.7)
+      .fromTo(q(el)('.vehicle-info-footer'), { opacity: 0 }, { opacity: 1, duration: 0.6 }, 0.6),
+
+    exit: (el) => gsap.timeline()
+      .to(q(el)('.vehicle-hotspot'), { opacity: 0, scale: 0, duration: 0.3, stagger: 0.04 })
+      .to(q(el)('.vehicle-info-header > *,.vehicle-info-model,.vehicle-info-footer'), { opacity: 0, duration: 0.4 }, 0),
+  },
+
+  // 07 RESERVE (última seção: não tem saída)
+  reserve: {
+    targets: '.reserve-head > *,.reserve-card,.reserve-form,footer',
+    enter: (el, d) => gsap.timeline()
+      .fromTo(q(el)('.reserve-head > *'), { opacity: 0, y: 40 * d },
+        { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out', stagger: 0.1 }, 0)
+      .fromTo(q(el)('.reserve-card'), { opacity: 0, y: 60 * d },
+        { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out', stagger: 0.12 }, 0.2)
+      .fromTo(q(el)('.reserve-form,footer'), { opacity: 0, y: 0 },
+        { opacity: 1, y: 0, duration: 0.6, stagger: 0.1 }, 0.7),
+
+    exit: (el) => gsap.timeline()
+      .to(q(el)('.reserve-head > *,.reserve-card,.reserve-form,footer'), { opacity: 0, y: 30, duration: 0.4, stagger: 0.04 }),
+  },
+};
+
+
+// ----------------------------------------------------------------------------------------
+//                       SEÇÕES PINADAS COM SCRUB (SEM TRAVAR O SCROLL)
+// ----------------------------------------------------------------------------------------
+// Quanto de scroll cada seção consome (em % da altura da tela).
+// Aumente para ficar mais tempo na seção; diminua para passar mais rápido.
+const SCROLL = { default: 250, 'section-hscroll': 600, reserve: 150 };
+
+// Tempo "parado" com o conteúdo na tela, entre a entrada e a saída.
+// (unidades da timeline: comparar com as durations do sectionFX)
+const HOLD = 0.5;
+
+function buildScenes() {
+  const sections = gsap.utils.toArray('.snap-section');
+  const marks = {}; // id -> { st, mark } para o menu
+
+  sections.forEach((s, i) => {
+    const fx = sectionFX[s.id];
+    if (!fx) return;
+    const isLast = i === sections.length - 1;
+
+    gsap.set(q(s)(fx.targets), { opacity: 0 });
+
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: s,
+        start: 'top top',
+        end: `+=${SCROLL[s.id] ?? SCROLL.default}%`,
+        pin: true,
+        scrub: true,
+        anticipatePin: 1,
+        invalidateOnRefresh: true,
+      },
+    });
+
+    const enterTl = fx.enter(s, 1);
+    tl.add(enterTl, 0);                                  // ENTRADA
+    if (fx.middle) tl.add(fx.middle(s));                 // MEIO (ex.: scroll lateral)
+    else tl.to({}, { duration: HOLD });                  // pausa com o conteúdo na tela
+    if (!isLast) tl.add(fx.exit(s, 1));                  // SAÍDA (a última seção fica)
+
+    // ponto da timeline onde o conteúdo já está todo visível (usado pelo menu)
+    const visibleAt = enterTl.duration() + (fx.middle ? 0 : HOLD / 2);
+    marks[s.id] = { st: tl.scrollTrigger, ratio: visibleAt / tl.duration() };
+  });
+
+  // menu / "back to top": rolagem suave até a seção
+  snapApi = {
+    goToId(id) {
+      if (id === 'top') { lenis.scrollTo(0, { duration: 2 }); return true; }
+      const m = marks[id];
+      if (!m) return false;
+      const { start, end } = m.st;
+      lenis.scrollTo(start + (end - start) * m.ratio, { duration: 2 });
+      return true;
+    },
+  };
+
+  return () => { snapApi = null; };
+}
+
+// mobile: sem pin, só reveal simples ao rolar
+function buildMobile() {
+  gsap.utils.toArray('.snap-section').forEach((s) => {
+    const fx = sectionFX[s.id];
+    if (!fx) return;
+    gsap.set(q(s)(fx.targets), { opacity: 0 });
+    ScrollTrigger.create({ trigger: s, start: 'top 75%', once: true, onEnter: () => fx.enter(s, 1) });
+  });
+
+  snapApi = {
+    goToId(id) {
+      const target = id === 'top' ? 0 : document.getElementById(id);
+      if (id !== 'top' && !target) return false;
+      lenis.scrollTo(target);
+      return true;
+    },
+  };
+
+  return () => { snapApi = null; };
+}
+
+
+// ----------------------------------------------------------------------------------------
+//                                           APP
+// ----------------------------------------------------------------------------------------
+function App() {
   const [reserved, setReserved] = useState(false);
+  const [ready, setReady] = useState(false);
 
   function handleReserve(e) {
     e.preventDefault();
     setReserved(true);
   }
 
-
   useEffect(() => {
-    const ctx = gsap.context(() => {
+    history.scrollRestoration = 'manual';
+    window.scrollTo(0, 0);
 
-      gsap.to('.hero-copy', {
-        yPercent: 35,
-        opacity: 0.15,
+    lenis = new Lenis({ duration: 1.15, smoothWheel: true, syncTouch: true });
+    lenis.stop(); // fica parado até o 3D carregar
+    lenis.on('scroll', ScrollTrigger.update);
+    const tick = (t) => lenis.raf(t * 1000);
+    gsap.ticker.add(tick);
+    gsap.ticker.lagSmoothing(0);
 
-        scrollTrigger: {
-          trigger: '.hero',
-          start: 'top top',
-          end: 'bottom top',
-          scrub: true,
-        },
-      });
-
-      gsap.to('.hero-model', {
-        scale: 0.76,
-        yPercent: 18,
-        rotate: 3,
-
-        scrollTrigger: {
-          trigger: '.hero',
-          start: 'top top',
-          end: 'bottom top',
-          scrub: true,
-        },
-      });
-
-      gsap.utils
-        .toArray('.parallax-word')
-        .forEach((el) => {
-
-          gsap.to(el, {
-            xPercent: el.dataset.direction || 8,
-
-            scrollTrigger: {
-              trigger: el,
-              start: 'top bottom',
-              end: 'bottom top',
-              scrub: true,
-            },
-          });
-
-        });
-
+    const mm = gsap.matchMedia();
+    mm.add({ desktop: '(min-width: 801px)', mobile: '(max-width: 800px)' }, (ctx) => {
+      buildIntro();
+      return ctx.conditions.desktop ? buildScenes() : buildMobile();
     });
-
-    const lenis = new Lenis({
-      duration: 1.15,
-      smoothWheel: true,
-      syncTouch: true,
-    });
-
-    let rafId;
-
-    const raf = (time) => {
-      lenis.raf(time);
-
-      ScrollTrigger.update();
-
-      rafId = requestAnimationFrame(raf);
-    };
-
-    rafId = requestAnimationFrame(raf);
 
     return () => {
-      ctx.revert();
-
-      cancelAnimationFrame(rafId);
-
+      mm.revert();
+      gsap.ticker.remove(tick);
       lenis.destroy();
+      lenis = null;
     };
-
   }, []);
 
-// -----------------------------------------------------------------------------
-//                               PAGINA WEB DE FATO
-// ---------------------------------------
+  // segurança: se algo falhar no carregamento, libera depois de 5s
+  useEffect(() => {
+    const t = setTimeout(() => setReady(true), 5000);
+    return () => clearTimeout(t);
+  }, []);
+
+  // 3D pronto: libera o scroll
+  useEffect(() => {
+    if (!ready) return;
+    lenis?.start();
+    ScrollTrigger.refresh();
+  }, [ready]);
 
   return (
     <main id="top">
+      <Loader ready={ready} />
       <div className="scanlines" aria-hidden="true" />
-      <Nav open={menuOpen} setOpen={setMenuOpen} />
+      <Nav />
 
-      {/* first page */}
-
+      {/* ---------------- HERO / INTRO ---------------- */}
       <section className="hero">
         <div className="hero-grid" />
+
+        <h1 className="intro-title"><span>CIVIC</span><em>TYPE R</em></h1>
+        <div className="intro-cue scroll-cue"><span className="scroll-bar" /> SCROLL TO DISCOVER</div>
+
         <div className="hero-copy">
           <div className="eyebrow">HONDA / PERFORMANCE DIVISION / 2026</div>
           <h1>CIVIC<br /><em>TYPE R</em></h1>
           <p className="hero-description">A machine shaped by motion. Explore every line, number and detail.</p>
-          <div className="scroll-cue"><span className="scroll-bar" /> SCROLL TO DISCOVER</div>
         </div>
-        <div className="hero-model"><VehicleScene /></div>
+
+        <div className="hero-model"><VehicleScene onReady={() => setReady(true)} /></div>
         <div className="hero-side">TYPE R <span>01—07</span></div>
         <div className="hero-stat"><strong>320</strong><span>HP</span></div>
       </section>
 
-      {/* END first page */}
-
-{/* -------------------------------- INICIO PAGs ---------------------------------- */}
-      
-      <section className="statement" id="section-1">
+      {/* ---------------- SEÇÕES ---------------- */}
+      <section className="statement snap-section" id="section-1">
         <div className="section-index">01 / DESIGN</div>
         <Reveal>
           <p className="giant-copy parallax-word" data-direction="-6">BUILT</p>
@@ -709,8 +869,7 @@ function App() {
         </div>
       </section>
 
-
-      <section className="split-section dark" id="section-2">
+      <section className="split-section dark snap-section" id="section-2">
         <div className="split-copy">
           <div className="section-index">02 / PERFORMANCE</div>
           <Reveal>
@@ -726,9 +885,7 @@ function App() {
         </div>
       </section>
 
-  
-
-      <section className="dimensions-section" id="section-3">
+      <section className="dimensions-section snap-section" id="section-3">
         <div className="section-index">03 / DIMENSIONS</div>
         <div className="dimension-layout">
           <div>
@@ -751,9 +908,24 @@ function App() {
         </div>
       </section>
 
+      {/* scroll lateral */}
+      <section className="hscroll-section snap-section" id="section-hscroll">
+        <div className="section-index">THE NUMBERS / KEEP SCROLLING</div>
+        <div className="h-viewport">
+          <div className="h-track">
+            {hPanels.map((p, i) => (
+              <article className="h-panel" key={p.k}>
+                <span className="h-num">[0{i + 1}]</span>
+                <h3>{p.v}<small>{p.u}</small></h3>
+                <p>{p.k}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+        <div className="h-progress"><i className="h-bar" /></div>
+      </section>
 
-
-      <section className="cockpit-section" id="section-4">
+      <section className="cockpit-section snap-section" id="section-4">
         <div className="section-index">04 / COCKPIT</div>
         <div className="cockpit-copy">
           <div className="eyebrow">DRIVER / MACHINE</div>
@@ -767,9 +939,7 @@ function App() {
         </div>
       </section>
 
-
-
-      <section className="interactive-section" id="section-5">
+      <section className="interactive-section snap-section" id="section-5">
         <div className="section-index">05 / INTERACT</div>
         <div className="interactive-head">
           <div><div className="eyebrow">YOUR TURN</div><h2>TAKE<br /><em>CONTROL</em></h2></div>
@@ -779,18 +949,17 @@ function App() {
           <VehicleScene interactive />
         </div>
       </section>
+
       <VehicleInfoSection />
 
-
-
-      <section className="reserve-section" id="reserve">
+      <section className="reserve-section snap-section" id="reserve">
         <div className="reserve-head">
           <div>
             <span className="section-index">07 / AVAILABILITY</span>
 
-            <h2>RESERVE<br/><em>YOURS</em></h2>
+            <h2>RESERVE<br /><em>YOURS</em></h2>
 
-            <a href="#top" className="back-top">BACK TO TOP <ArrowUpRight size={17} /></a>
+            <a href="#top" className="back-top" onClick={goSnap('top')}>BACK TO TOP <ArrowUpRight size={17} /></a>
           </div>
           <p className="muted-copy">Limited production. Exclusive service for collectors and brand enthusiasts.</p>
         </div>
@@ -817,30 +986,25 @@ function App() {
           <input type="email" required placeholder="YOUR EMAIL" />
           <button type="submit">TO SEND</button>
         </form>
+
         {reserved && (
           <div className="reserve-success">
             ✓ Request received. A concierge will contact you.
           </div>
         )}
+
+        <footer>
+          <span>GARAGE. / VEHICLE EXPERIENCE</span>
+          <div className="footer-links">
+            <a href="#">PRIVACY</a>
+            <a href="#">TERMS</a>
+            <a href="#">IMPRENSA</a>
+          </div>
+          <span>BUILT FOR THE ROAD AHEAD.</span>
+        </footer>
       </section>
-
-
-
-      <footer>
-        <span>GARAGE. / VEHICLE EXPERIENCE</span>
-        <div className="footer-links">
-          <a href="#">PRIVACY</a>
-          <a href="#">TERMS</a>
-          <a href="#">IMPRENSA</a>
-        </div>
-        <span>BUILT FOR THE ROAD AHEAD.</span>
-      </footer>
-
-
     </main>
   );
 }
 
-createRoot(document.getElementById('root')).render(
-  <Suspense fallback={<div className="loading">LOADING EXPERIENCE...</div>}><App /></Suspense>
-);
+createRoot(document.getElementById('root')).render(<App />);
