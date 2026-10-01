@@ -9,11 +9,21 @@ import * as THREE from 'three';
 import './styles.css';
 
 import { gsap } from 'gsap';
+import { Observer } from 'gsap/Observer';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 import Lenis from 'lenis';
+import 'lenis/dist/lenis.css';
 
-gsap.registerPlugin(ScrollTrigger);
+gsap.registerPlugin(ScrollTrigger, Observer);
+
+let lenis = null;     // instância global
+let snapApi = null;   // usada pelo Nav 
+const hooks = {};     // ponte entre a intro e o snap
+const COLS = 14, ROWS = 8;
+const q = (el) => gsap.utils.selector(el);
+
+
   
 const vehicle = {
   brand: 'HONDA',
@@ -196,6 +206,7 @@ function VehicleScene({ interactive = false, className = '', staticSide = false}
       {interactive && (
         <OrbitControls
           enablePan={false}
+          enableZoom={false}
           minDistance={4}
           maxDistance={8}
           minPolarAngle={Math.PI / 3.1}
@@ -273,63 +284,11 @@ const vehicleInfoPoints = {
 function VehicleInfoSection() {
   const [activePoint, setActivePoint] = useState(null);
 
-  const sectionRef = useRef(null);
+  // const sectionRef = useRef(null);
   const cardRef = useRef(null);
   const lineRef = useRef(null);
 
   const activeData = activePoint ? vehicleInfoPoints[activePoint] : null;
-
-  /*
-   * Entrada da seção.
-   */
-  useEffect(() => {
-    const section = sectionRef.current;
-
-    if (!section) return;
-
-    const ctx = gsap.context(() => {
-      gsap.fromTo(
-        '.vehicle-info-title',
-        {
-          y: 50,
-          opacity: 0,
-        },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 1.1,
-          ease: 'power3.out',
-          scrollTrigger: {
-            trigger: section,
-            start: 'top 75%',
-            once: true,
-          },
-        }
-      );
-
-      gsap.fromTo(
-        '.vehicle-hotspot',
-        {
-          scale: 0,
-          opacity: 0,
-        },
-        {
-          scale: 1,
-          opacity: 1,
-          duration: 0.7,
-          stagger: 0.12,
-          ease: 'back.out(1.7)',
-          scrollTrigger: {
-            trigger: section,
-            start: 'top 65%',
-            once: true,
-          },
-        }
-      );
-    }, section);
-
-    return () => ctx.revert();
-  }, []);
 
   /*
    * Animação do card quando troca de informação.
@@ -396,7 +355,7 @@ function VehicleInfoSection() {
 
 
   return (
-    <section ref={sectionRef} className="vehicle-info-section" id="section-6">
+    <section /*ref={sectionRef}*/ className="vehicle-info-section snap-section" id="section-6">
       <div className="final-watermark">TYPE R</div>
       <div className="vehicle-info-header">
         <div className="section-index">
@@ -501,10 +460,23 @@ function VehicleInfoSection() {
 }
 // -------------------------- FIM VEIHCLE CARD POINT --------------------------------------------
 
+// -------------------------- TILES --------------------------------
 
+function Tiles() {
+  return (
+    <div className="tiles" aria-hidden="true">
+      {Array.from({ length: COLS * ROWS }, (_, i) => <i key={i} className="tile" />)}
+    </div>
+  );
+}
+
+// -------------------------- FIM TILES -----------------------------
+
+const goSnap = (id) => (e) => { if (snapApi?.goToId(id)) e.preventDefault(); };
 
 // NAVBAR
 function Nav({ open, setOpen }) {
+
 
   const links = [
     { href: '#section-1', label: 'DESIGN' },
@@ -518,16 +490,21 @@ function Nav({ open, setOpen }) {
   return (
     <>
       <header className="nav">
-        <a href="#top" className="logo">GARAGE<span>.</span></a>
+        <a href="#top" className="logo" onClick={goSnap('top')}>GARAGE<span>.</span></a>
 
          <nav className="nav-links">
           {links.map((link, i) => (
-            <a key={link.href} href={link.href}>[0{i + 1}] {link.label}</a>
+            <a key={link.href} href={link.href}
+              onClick={(e) => { if (snapApi?.goToId(link.href.slice(1))) e.preventDefault(); }}>
+              [0{i + 1}] {link.label}
+            </a>
           ))}
         </nav>
 
+        
+
         <div className="nav-right">
-          <a href="#reserve" className="nav-cta">RESERVE</a>
+          <a href="#reserve" className="nav-cta" onClick={goSnap('reserve')}>RESERVE</a>
 
         </div>
       </header>
@@ -539,36 +516,6 @@ function Nav({ open, setOpen }) {
 
 function Reveal({ children, className = '' }) {
   const ref = useRef();
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const animation = gsap.fromTo(
-      el,
-      {
-        y: 42,
-        opacity: 0,
-      },
-      {
-        y: 0,
-        opacity: 1,
-        duration: 1.1,
-        ease: 'power3.out',
-
-        scrollTrigger: {
-          trigger: el,
-          start: 'top 84%',
-          once: true,
-        },
-      }
-    );
-
-    return () => {
-      animation.kill();
-    };
-
-  }, []);
 
   return <div ref={ref} className={className}>{children}</div>;
 }
@@ -583,6 +530,342 @@ function Metric({ value, label, sub }) {
   );
 }
 
+
+
+// ----------------------------------------------------------------------------------------
+//                          INICIALIZAÇÃO DA INTRO                
+// -------------------------------------------
+function buildIntro() {
+  const model = document.querySelector('.hero-model');
+  // distância para o carro ficar centralizado na tela
+  const centerX = () => window.innerWidth / 2 - (model.offsetLeft + model.offsetWidth / 2);
+
+  const tl = gsap.timeline({
+    defaults: { ease: 'none' },
+    scrollTrigger: {
+      trigger: '.hero',
+      start: 'top top',
+      end: '+=450%',          // quanto "scroll" a intro consome
+      scrub: true,            // o Lenis já suaviza, não precisa de scrub: 1
+      pin: true,
+      anticipatePin: 1,
+      invalidateOnRefresh: true,
+      onLeave: () => hooks.onLeave?.(),
+    },
+  });
+
+  tl.to('.intro-cue', { opacity: 0, duration: 0.3 }, 0)
+    // 1) título vem "pra frente" e some
+    .to('.intro-title', { scale: 22, opacity: 0, ease: 'power2.in', duration: 1.6 }, 0)
+    .to('.hero-grid', { scale: 1.6, duration: 3.2 }, 0)
+    // 2) carro surge no centro
+    .fromTo(model, { opacity: 0, scale: 0.35, x: centerX },
+      { opacity: 1, scale: 0.85, x: centerX, ease: 'power2.out', duration: 1.4 }, 1)
+    // 3) carro vai pro lado
+    .to(model, { x: 0, scale: 1, ease: 'power3.inOut', duration: 1.4 }, 2.7)
+    // 4) hero atual aparece
+    .fromTo('.hero-copy > *', { opacity: 0, x: -60 },
+      { opacity: 1, x: 0, ease: 'power2.out', duration: 0.8, stagger: 0.15 }, 3.3)
+    .fromTo('.hero-stat,.hero-side', { opacity: 0 }, { opacity: 1, duration: 0.6 }, 4)
+    .to({}, { duration: 0.4 }); // respiro final
+
+  return tl.scrollTrigger;
+}
+// ----------------------------------------------------------------------------------------
+//                        FIM  INICIALIZAÇÃO DA INTRO                
+// -------------------------------------------
+
+
+// ----------------------------------------------------------------------------------------
+//                           ANIMAÇÃO POR SESSÃO                
+// -------------------------------------------
+
+// d é a direção (1 descendo, -1 subindo), então as animações invertem sozinhas ao voltar.
+const hPanels = [
+  { k: 'ENGINE', v: '2.0', u: 'L VTEC TURBO' },
+  { k: 'TRANSMISSION', v: '6', u: '-SPEED MANUAL' },
+  { k: 'CURB WEIGHT', v: '1,430', u: 'KG' },
+  { k: 'WHEELBASE', v: '2.735', u: 'M' },
+];
+
+const sectionFX = {
+  // 01 DESIGN: texto sobe e entra girando levemente
+  'section-1': {
+    targets: '.section-index,.giant-copy,.statement-bottom',
+    enter: (el, d) => gsap.timeline()
+      .fromTo(q(el)('.giant-copy'), { opacity: 0, yPercent: 60 * d, rotate: 2 * d },
+        { opacity: 1, yPercent: 0, rotate: 0, duration: 1, ease: 'power4.out', stagger: 0.12 }, 0)
+      .fromTo(q(el)('.section-index,.statement-bottom'), { opacity: 0, y: 20 * d },
+        { opacity: 1, y: 0, duration: 0.6 }, 0.3),
+
+    exit: (el, d) => gsap.timeline()
+      .to(q(el)('.giant-copy'), { opacity: 0, yPercent: -40 * d, duration: 0.5, ease: 'power3.in', stagger: 0.06 })
+      .to(q(el)('.section-index,.statement-bottom'), { opacity: 0, duration: 0.3 }, 0),
+  },
+
+  // 02 PERFORMANCE: texto da esquerda, métricas sobem em cascata
+  'section-2': {
+    targets: '.section-index,.split-copy h2,.split-copy p,.metric',
+    enter: (el, d) => gsap.timeline()
+      .fromTo(q(el)('.section-index,.split-copy h2,.split-copy p'), { opacity: 0, x: -80, scale: 1 },
+        { opacity: 1, x: 0, scale: 1, duration: 0.9, ease: 'power3.out', stagger: 0.1 }, 0)
+      .fromTo(q(el)('.metric'), { opacity: 0, y: 60 * d, scale: 1 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.8, ease: 'power3.out', stagger: 0.1 }, 0.15),
+    exit: (el) => gsap.timeline()
+      .to(q(el)('.section-index,.split-copy h2,.split-copy p,.metric'),
+        { opacity: 0, scale: 0.94, duration: 0.45, ease: 'power2.in', stagger: 0.04 }),
+  },
+
+  // 03 DIMENSIONS: as linhas de cota "se desenham"
+  'section-3': {
+    targets: '.section-index,.dimension-layout h2,.muted-copy,.dim-visual,.dim-grid > div',
+    enter: (el, d) => gsap.timeline()
+      .fromTo(q(el)('.section-index,.dimension-layout h2,.muted-copy'), { opacity: 0, y: 50 * d },
+        { opacity: 1, y: 0, duration: 0.9, ease: 'power3.out', stagger: 0.1 }, 0)
+      .fromTo(q(el)('.dim-visual'), { opacity: 0, y: 0 }, { opacity: 1, y: 0, duration: 0.5 }, 0.2)
+      .fromTo(q(el)('.dim-line.horizontal'), { scaleX: 0 }, { scaleX: 1, duration: 0.9, ease: 'power3.inOut' }, 0.4)
+      .fromTo(q(el)('.dim-line.vertical'), { scaleY: 0, transformOrigin: 'top' },
+        { scaleY: 1, duration: 0.9, ease: 'power3.inOut' }, 0.5)
+      .fromTo(q(el)('.dim-grid > div'), { opacity: 0, y: 30 },
+        { opacity: 1, y: 0, duration: 0.6, stagger: 0.08 }, 0.6),
+
+    exit: (el, d) => gsap.timeline()
+      .to(q(el)('.section-index,.dimension-layout h2,.muted-copy,.dim-visual,.dim-grid > div'),
+        { opacity: 0, y: -30 * d, duration: 0.45, ease: 'power2.in', stagger: 0.03 }),
+  },
+
+  // 04 COCKPIT: o painel é revelado com clip-path (não mexe no transform 3D do CSS)
+  'section-4': {
+    targets: '.section-index,.cockpit-copy > *,.cockpit-visual,.dash-card',
+    enter: (el) => gsap.timeline()
+      .fromTo(q(el)('.section-index,.cockpit-copy > *'), { opacity: 0, x: -60 },
+        { opacity: 1, x: 0, duration: 0.9, ease: 'power3.out', stagger: 0.1 }, 0)
+      .fromTo(q(el)('.cockpit-visual'), { opacity: 0, clipPath: 'inset(0 0 0 100%)' },
+        { opacity: 1, clipPath: 'inset(0 0 0 0%)', duration: 1.1, ease: 'power3.inOut' }, 0.1)
+      .fromTo(q(el)('.dash-card'), { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.6, stagger: 0.15 }, 0.8),
+
+    exit: (el) => gsap.timeline()
+      .to(q(el)('.section-index,.cockpit-copy > *'), { opacity: 0, x: -40, duration: 0.4, stagger: 0.04 })
+      .to(q(el)('.cockpit-visual'), { clipPath: 'inset(0 100% 0 0)', duration: 0.5, ease: 'power3.in' }, 0),
+  },
+
+  // 05 INTERACT: modelo "cresce" de dentro da seção
+  'section-5': {
+    targets: '.section-index,.interactive-head > *,.interactive-model',
+    enter: (el, d) => gsap.timeline()
+      .fromTo(q(el)('.section-index,.interactive-head > *'), { opacity: 0, y: -40 * d },
+        { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out', stagger: 0.1 }, 0)
+      .fromTo(q(el)('.interactive-model'), { opacity: 0, scale: 0.8, y: 60 * d },
+        { opacity: 1, scale: 1, y: 0, duration: 1.1, ease: 'power3.out' }, 0.15),
+
+    exit: (el) => gsap.timeline()
+      .to(q(el)('.interactive-model'), { opacity: 0, scale: 0.9, duration: 0.5, ease: 'power2.in' })
+      .to(q(el)('.section-index,.interactive-head > *'), { opacity: 0, duration: 0.3 }, 0),
+  },
+
+  // NOVA: scroll lateral em passos
+  'section-hscroll': {
+    steps: 4,
+    targets: '.section-index,.h-viewport,.h-progress',
+    enter: (el, d, startSub = 0) => {
+      gsap.set(q(el)('.h-track'), { x: -startSub * window.innerWidth });
+      gsap.set(q(el)('.h-bar'), { scaleX: (startSub + 1) / 4 });
+      return gsap.timeline()
+        .fromTo(q(el)('.section-index,.h-progress'), { opacity: 0, x: 0, y: 20 },
+          { opacity: 1, x: 0, y: 0, duration: 0.6, stagger: 0.1 }, 0)
+        .fromTo(q(el)('.h-viewport'), { opacity: 0, x: 120 * d },
+          { opacity: 1, x: 0, duration: 0.9, ease: 'power3.out' }, 0.1);
+        
+    },
+    step: (el, i) => gsap.timeline()
+      .to(q(el)('.h-track'), { x: -i * window.innerWidth, duration: 1, ease: 'power3.inOut' })
+      .to(q(el)('.h-bar'), { scaleX: (i + 1) / 4, duration: 1, ease: 'power3.inOut' }, 0),
+
+    exit: (el, d) => gsap.timeline()
+      .to(q(el)('.section-index,.h-viewport,.h-progress'), { opacity: 0, x: -80 * d, duration: 0.45, ease: 'power2.in' }),
+  },
+
+  // 06 THE MACHINE (substitui os ScrollTriggers internos do componente)
+  'section-6': {
+    targets: '.vehicle-info-header > *,.vehicle-info-model,.vehicle-hotspot,.vehicle-info-footer',
+    enter: (el, d) => gsap.timeline()
+      .fromTo(q(el)('.vehicle-info-header > *'), { opacity: 0, y: 40 * d },
+        { opacity: 1, y: 0, duration: 0.9, ease: 'power3.out', stagger: 0.1 }, 0)
+      .fromTo(q(el)('.vehicle-info-model'), { opacity: 0, x: 120 * d },
+        { opacity: 1, x: 0, duration: 1.1, ease: 'power3.out' }, 0.1)
+      .fromTo(q(el)('.vehicle-hotspot'), { opacity: 0, scale: 0 },
+        { opacity: 1, scale: 1, duration: 0.6, stagger: 0.1, ease: 'back.out(1.7)' }, 0.7)
+      .fromTo(q(el)('.vehicle-info-footer'), { opacity: 0 }, { opacity: 1, duration: 0.6 }, 0.6),
+
+    exit: (el) => gsap.timeline()
+      .to(q(el)('.vehicle-hotspot'), { opacity: 0, scale: 0, duration: 0.3, stagger: 0.04 })
+      .to(q(el)('.vehicle-info-header > *,.vehicle-info-model,.vehicle-info-footer'), { opacity: 0, duration: 0.4 }, 0),
+  },
+
+  // 07 RESERVE
+  reserve: {
+    targets: '.reserve-head > *,.reserve-card,.reserve-form,footer',
+    enter: (el, d) => gsap.timeline()
+      .fromTo(q(el)('.reserve-head > *'), { opacity: 0, y: 40 * d },
+        { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out', stagger: 0.1 }, 0)
+      .fromTo(q(el)('.reserve-card'), { opacity: 0, y: 60 * d },
+        { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out', stagger: 0.12 }, 0.2)
+      .fromTo(q(el)('.reserve-form,footer'), { opacity: 0, y: 0 },
+        { opacity: 1, y: 0, duration: 0.6, stagger: 0.1 }, 0.7),
+
+    exit: (el) => gsap.timeline()
+      .to(q(el)('.reserve-head > *,.reserve-card,.reserve-form,footer'), { opacity: 0, y: 30, duration: 0.4, stagger: 0.04 }),
+  },
+};
+// ----------------------------------------------------------------------------------------
+//                          fim ANIMAÇÃO POR SESSÃO                
+// -------------------------------------------
+
+
+// ----------------------------------------------------------------------------------------
+//                          TRAVA PAGE NA SESSÃO            
+// ------------------------------------------
+
+function buildSnap(introST) {
+  const sections = gsap.utils.toArray('.snap-section');
+  const ids = sections.map((s) => s.id);
+  const tiles = gsap.utils.toArray('.tile');
+  const fxOf = (i) => sectionFX[ids[i]];
+  let current = -1;   // -1 = intro
+  let sub = 0;        // passo atual (scroll lateral)
+  let busy = false;
+
+  // estado inicial: tudo escondido até a primeira entrada
+  sections.forEach((s, i) => {
+    const t = fxOf(i)?.targets;
+    if (t) gsap.set(q(s)(t), { opacity: 0 });
+  });
+
+  const release = () => gsap.delayedCall(0.25, () => { busy = false; }); // evita "cauda" do trackpad
+  const stagger = (dir) => ({ grid: [ROWS, COLS], from: dir > 0 ? 'start' : 'end', amount: 0.55 });
+  const lock = () => { lenis.stop(); obs.enable(); };
+  const unlock = () => { lenis.start(); obs.disable(); };
+  const jump = (target) => lenis.scrollTo(target, { immediate: true, force: true });
+
+  function goTo(next, toStart = false) {
+    if (busy || next === current || next < -1 || next >= sections.length) return;
+    busy = true;
+    const dir = next > current ? 1 : -1;
+    const from = current;
+    const startSub = next >= 0 && dir < 0 ? (fxOf(next).steps || 1) - 1 : 0;
+
+    const tl = gsap.timeline({ onComplete: release });
+
+    // SAÍDA da seção atual
+    if (from >= 0) tl.add(fxOf(from).exit(sections[from], dir));
+
+    // quadrados cobrem a tela
+    tl.to(tiles, { scale: 1.02, duration: 0.4, ease: 'power2.inOut', stagger: stagger(dir) },
+      from >= 0 ? '-=0.25' : 0)
+      // troca de seção com a tela coberta
+      .add(() => {
+        current = next;
+        if (next < 0) {
+          unlock();
+          jump(toStart ? 0 : introST.end - 2);
+        } else {
+          sub = startSub;
+          lock();
+          jump(sections[next]);
+        }
+      })
+      // quadrados saem
+      .to(tiles, { scale: 0, duration: 0.4, ease: 'power2.inOut', stagger: stagger(dir) }, '+=0.05');
+
+    // ENTRADA da próxima
+    if (next >= 0) tl.add(fxOf(next).enter(sections[next], dir, startSub), '-=0.45');
+  }
+
+  // um gesto = um passo lateral (se a seção tiver) ou uma seção
+  function step(dir) {
+    if (busy || current < 0) return;
+    const fx = fxOf(current);
+    if (fx?.steps) {
+      const s = sub + dir;
+      if (s >= 0 && s < fx.steps) {
+        busy = true;
+        sub = s;
+        fx.step(sections[current], s).eventCallback('onComplete', release);
+        return;
+      }
+    }
+    goTo(current + dir);
+  }
+
+  const obs = Observer.create({
+    type: 'wheel,touch',
+    wheelSpeed: -1,            // roda pra baixo => onUp (convenção do Observer)
+    tolerance: 30,
+    preventDefault: true,
+    ignore: '.interactive-model', // deixa arrastar o carro sem trocar de seção
+    onUp: () => step(1),
+    onDown: () => step(-1),
+  });
+  obs.disable();
+
+  // ao terminar a intro, assume o controle
+  hooks.onLeave = () => {
+    if (busy || current !== -1) return;
+    current = 0; sub = 0;
+    lock();
+    jump(sections[0]);
+    fxOf(0).enter(sections[0], 1, 0);
+  };
+
+  const onKey = (e) => {
+    if (current < 0 || e.target.closest?.('input,textarea')) return;
+    if (['ArrowDown', 'PageDown'].includes(e.key)) { e.preventDefault(); step(1); }
+    if (['ArrowUp', 'PageUp'].includes(e.key)) { e.preventDefault(); step(-1); }
+  };
+  const onResize = () => { if (current >= 0) jump(sections[current]); };
+  window.addEventListener('keydown', onKey);
+  window.addEventListener('resize', onResize);
+
+  // usado pelo menu / "back to top"
+  snapApi = {
+    goToId(id) {
+      if (id === 'top') { goTo(-1, true); return true; }
+      const i = ids.indexOf(id);
+      if (i < 0) return false;
+      goTo(i);
+      return true;
+    },
+  };
+
+  return () => {
+    obs.kill();
+    window.removeEventListener('keydown', onKey);
+    window.removeEventListener('resize', onResize);
+    snapApi = null;
+    hooks.onLeave = null;
+    lenis?.start();
+    gsap.set(tiles, { clearProps: 'all' });
+  };
+}
+
+// mobile: sem trava, só reveal simples ao rolar
+function buildMobile() {
+  gsap.utils.toArray('.snap-section').forEach((s) => {
+    const fx = sectionFX[s.id];
+    if (!fx) return;
+    gsap.set(q(s)(fx.targets), { opacity: 0 });
+    ScrollTrigger.create({ trigger: s, start: 'top 75%', once: true, onEnter: () => fx.enter(s, 1, 0) });
+  });
+}
+
+// ----------------------------------------------------------------------------------------
+//                          FIM TRAVA PAGE NA SESSÃO              
+// ------------------------------------------
+
+
+
+
 function App() {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -594,80 +877,40 @@ function App() {
   }
 
 
+//           USER EFFECT
+// -------------------------------------------------------------------------------------------
+
   useEffect(() => {
-    const ctx = gsap.context(() => {
 
-      gsap.to('.hero-copy', {
-        yPercent: 35,
-        opacity: 0.15,
+    history.scrollRestoration = 'manual';
+    window.scrollTo(0, 0);
 
-        scrollTrigger: {
-          trigger: '.hero',
-          start: 'top top',
-          end: 'bottom top',
-          scrub: true,
-        },
-      });
+    lenis = new Lenis({ duration: 1.15, smoothWheel: true, syncTouch: true, anchors: true });
+    lenis.on('scroll', ScrollTrigger.update);
+    const tick = (t) => lenis.raf(t * 1000);
+    gsap.ticker.add(tick);
+    gsap.ticker.lagSmoothing(0);
 
-      gsap.to('.hero-model', {
-        scale: 0.76,
-        yPercent: 18,
-        rotate: 3,
-
-        scrollTrigger: {
-          trigger: '.hero',
-          start: 'top top',
-          end: 'bottom top',
-          scrub: true,
-        },
-      });
-
-      gsap.utils
-        .toArray('.parallax-word')
-        .forEach((el) => {
-
-          gsap.to(el, {
-            xPercent: el.dataset.direction || 8,
-
-            scrollTrigger: {
-              trigger: el,
-              start: 'top bottom',
-              end: 'bottom top',
-              scrub: true,
-            },
-          });
-
-        });
-
+    const mm = gsap.matchMedia();
+    mm.add({ desktop: '(min-width: 801px)', mobile: '(max-width: 800px)' }, (ctx) => {
+      const introST = buildIntro();
+      if (ctx.conditions.desktop) {
+        const cleanup = buildSnap(introST);
+        return cleanup;
+      }
+      buildMobile();
     });
-
-    const lenis = new Lenis({
-      duration: 1.15,
-      smoothWheel: true,
-      syncTouch: true,
-    });
-
-    let rafId;
-
-    const raf = (time) => {
-      lenis.raf(time);
-
-      ScrollTrigger.update();
-
-      rafId = requestAnimationFrame(raf);
-    };
-
-    rafId = requestAnimationFrame(raf);
 
     return () => {
-      ctx.revert();
-
-      cancelAnimationFrame(rafId);
-
+      mm.revert();
+      gsap.ticker.remove(tick);
       lenis.destroy();
+      lenis = null;
     };
-
   }, []);
+
+//         FIM  USER EFFECT
+// -------------------------------------------------------------------------------------------
 
 // -----------------------------------------------------------------------------
 //                               PAGINA WEB DE FATO
@@ -676,18 +919,23 @@ function App() {
   return (
     <main id="top">
       <div className="scanlines" aria-hidden="true" />
+      <Tiles />
       <Nav open={menuOpen} setOpen={setMenuOpen} />
 
       {/* first page */}
 
       <section className="hero">
         <div className="hero-grid" />
+
+        <h1 className="intro-title"><span>CIVIC</span><em>TYPE R</em></h1>
+        <div className="intro-cue scroll-cue"><span className="scroll-bar" /> SCROLL TO DISCOVER</div>
+
         <div className="hero-copy">
           <div className="eyebrow">HONDA / PERFORMANCE DIVISION / 2026</div>
           <h1>CIVIC<br /><em>TYPE R</em></h1>
           <p className="hero-description">A machine shaped by motion. Explore every line, number and detail.</p>
-          <div className="scroll-cue"><span className="scroll-bar" /> SCROLL TO DISCOVER</div>
         </div>
+        
         <div className="hero-model"><VehicleScene /></div>
         <div className="hero-side">TYPE R <span>01—07</span></div>
         <div className="hero-stat"><strong>320</strong><span>HP</span></div>
@@ -695,9 +943,11 @@ function App() {
 
       {/* END first page */}
 
+
+    
 {/* -------------------------------- INICIO PAGs ---------------------------------- */}
       
-      <section className="statement" id="section-1">
+      <section className="statement snap-section" id="section-1">
         <div className="section-index">01 / DESIGN</div>
         <Reveal>
           <p className="giant-copy parallax-word" data-direction="-6">BUILT</p>
@@ -710,7 +960,7 @@ function App() {
       </section>
 
 
-      <section className="split-section dark" id="section-2">
+      <section className="split-section dark snap-section" id="section-2">
         <div className="split-copy">
           <div className="section-index">02 / PERFORMANCE</div>
           <Reveal>
@@ -728,7 +978,7 @@ function App() {
 
   
 
-      <section className="dimensions-section" id="section-3">
+      <section className="dimensions-section snap-section" id="section-3">
         <div className="section-index">03 / DIMENSIONS</div>
         <div className="dimension-layout">
           <div>
@@ -752,8 +1002,26 @@ function App() {
       </section>
 
 
+      {/*------------------------------ scroll lateral ------------------------------*/}
+      <section className="hscroll-section snap-section" id="section-hscroll">
+        <div className="section-index">THE NUMBERS / KEEP SCROLLING</div>
+        <div className="h-viewport">
+          <div className="h-track">
+            {hPanels.map((p, i) => (
+              <article className="h-panel" key={p.k}>
+                <span className="h-num">[0{i + 1}]</span>
+                <h3>{p.v}<small>{p.u}</small></h3>
+                <p>{p.k}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+        <div className="h-progress"><i className="h-bar" /></div>
+      </section>
+      {/*------------------------------ FIM scroll lateral  ------------------------------*/}
 
-      <section className="cockpit-section" id="section-4">
+
+      <section className="cockpit-section snap-section" id="section-4">
         <div className="section-index">04 / COCKPIT</div>
         <div className="cockpit-copy">
           <div className="eyebrow">DRIVER / MACHINE</div>
@@ -769,7 +1037,7 @@ function App() {
 
 
 
-      <section className="interactive-section" id="section-5">
+      <section className="interactive-section snap-section" id="section-5">
         <div className="section-index">05 / INTERACT</div>
         <div className="interactive-head">
           <div><div className="eyebrow">YOUR TURN</div><h2>TAKE<br /><em>CONTROL</em></h2></div>
@@ -781,16 +1049,17 @@ function App() {
       </section>
       <VehicleInfoSection />
 
+        
 
+      <section className="reserve-section snap-section" id="reserve">
 
-      <section className="reserve-section" id="reserve">
         <div className="reserve-head">
           <div>
             <span className="section-index">07 / AVAILABILITY</span>
 
             <h2>RESERVE<br/><em>YOURS</em></h2>
 
-            <a href="#top" className="back-top">BACK TO TOP <ArrowUpRight size={17} /></a>
+            <a href="#top" className="back-top" onClick={goSnap('top')}>BACK TO TOP <ArrowUpRight size={17} /></a>
           </div>
           <p className="muted-copy">Limited production. Exclusive service for collectors and brand enthusiasts.</p>
         </div>
@@ -817,24 +1086,26 @@ function App() {
           <input type="email" required placeholder="YOUR EMAIL" />
           <button type="submit">TO SEND</button>
         </form>
+
         {reserved && (
           <div className="reserve-success">
             ✓ Request received. A concierge will contact you.
           </div>
         )}
+
+        {/* FOOTER DENTRO DE RESERVE */}
+        <footer>
+          <span>GARAGE. / VEHICLE EXPERIENCE</span>
+          <div className="footer-links">
+            <a href="#">PRIVACY</a>
+            <a href="#">TERMS</a>
+            <a href="#">IMPRENSA</a>
+          </div>
+          <span>BUILT FOR THE ROAD AHEAD.</span>
+        </footer>
+        {/* FIM FOOTER DENTRO DE RESERVE */}
+
       </section>
-
-
-
-      <footer>
-        <span>GARAGE. / VEHICLE EXPERIENCE</span>
-        <div className="footer-links">
-          <a href="#">PRIVACY</a>
-          <a href="#">TERMS</a>
-          <a href="#">IMPRENSA</a>
-        </div>
-        <span>BUILT FOR THE ROAD AHEAD.</span>
-      </footer>
 
 
     </main>

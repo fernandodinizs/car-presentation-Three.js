@@ -814,3 +814,75 @@ footer { background:#050505; color:#555; border-top:1px solid #222; padding:25px
     bottom: 2%;
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* REORGANIZAR DEPOIS */
+/* ===== INTRO ===== */
+.hero h1.intro-title {
+  position: absolute; inset: 0; z-index: 4; margin: 0; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: clamp(70px, 15vw, 230px); line-height: .8; letter-spacing: -.09em; font-weight: 800;
+  will-change: transform, opacity; transform-origin: 50% 55%;
+}
+.intro-title em { font-style: normal; font-weight: 300; }
+.intro-cue { position: absolute; z-index: 5; left: 50%; bottom: 6vh; transform: translateX(-50%); margin: 0; }
+.hero-grid { will-change: transform; }
+
+/* ===== TILES (transição) ===== */
+.tiles {
+  position: fixed; inset: 0; z-index: 60; pointer-events: none;
+  display: grid; grid-template-columns: repeat(14, 1fr); grid-template-rows: repeat(8, 1fr);
+}
+.tile { background: #080808; outline: 1px solid #080808; transform: scale(0); }
+.tile:nth-child(19n) { background: #ff4d4d; outline-color: #ff4d4d; }
+
+/* ===== SEÇÕES TRAVADAS (desktop) ===== */
+@media (min-width: 801px) {
+  .snap-section { height: 100svh; min-height: 0 !important; overflow: hidden; }
+  .reserve-section { position: relative; }
+  .reserve-section footer { position: absolute; left: 0; right: 0; bottom: 0; }
+}
+
+/* ===== SCROLL LATERAL ===== */
+.hscroll-section { position: relative; background: #d7d5ce; color: #0b0b0b; min-height: 100vh; }
+.hscroll-section .section-index { position: absolute; z-index: 5; top: 110px; left: 7vw; }
+.h-viewport { position: absolute; inset: 0; overflow: hidden; }
+.h-track { display: flex; height: 100%; will-change: transform; }
+.h-panel {
+  flex: 0 0 100vw; height: 100%; padding: 0 7vw;
+  display: flex; flex-direction: column; justify-content: center;
+  border-right: 1px solid var(--line);
+}
+.h-num { font: 10px 'DM Mono', monospace; letter-spacing: .1em; color: #777; }
+.h-panel h3 { margin: 2vh 0; font-size: clamp(90px, 20vw, 300px); line-height: .8; letter-spacing: -.09em; font-weight: 800; }
+.h-panel h3 small { font-size: .16em; letter-spacing: -.02em; font-weight: 300; margin-left: .3em; }
+.h-panel p { font: 11px 'DM Mono', monospace; letter-spacing: .1em; color: #555; }
+.h-progress { position: absolute; z-index: 5; left: 7vw; right: 7vw; bottom: 6vh; height: 1px; background: var(--line); }
+.h-bar { display: block; height: 100%; background: #111; transform: scaleX(.25); transform-origin: left; }
+
+@media (max-width: 800px) {
+  .hscroll-section { height: auto; padding: 100px 22px; }
+  .h-viewport { position: static; overflow: visible; }
+  .h-track { flex-direction: column; transform: none !important; }
+  .h-panel { flex: none; height: auto; padding: 30px 0; }
+  .h-progress { display: none; }
+  .hscroll-section .section-index { position: static; }
+}
